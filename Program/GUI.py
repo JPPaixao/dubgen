@@ -463,12 +463,14 @@ class PageFour(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.controller = controller
         
+        '''
         for i in range(3):
             if i!=4:
                 self.grid_columnconfigure(i, weight=1, uniform="equal")
         
         # Give the center column a weight of 1
         #self.grid_columnconfigure(2, weight=1)
+        
         
         # Place widgets using grid()
         label1 = tk.Label(self, text="1")
@@ -479,32 +481,34 @@ class PageFour(tk.Frame):
         
         label3 = tk.Label(self, text="3")
         label3.grid(row=0, column=2)
-        
+        '''
         row=0
         
         label = tk.Label(self, text="Create Arrangement!", font=controller.title_font)     
-        label.grid(row=row, column=0 , columnspan=3, sticky="nsew", pady=100)
+        #label.grid(row=row, column=0 , columnspan=3, sticky="nsew", pady=100)
         row+=1       
-        #label.pack(side="top", fill="both", pady=10, expand=True)
+        label.pack(side="top", fill="both", pady=10, expand=True)
         
-        button1 = tk.Button(self, text="Go Back", font=('Helvetica', 18),
+        self.button1 = tk.Button(self, text="Go Back", font=('Helvetica', 18),
                            command=lambda: controller.show_frame("PageTwo"))
         
         self.t1=threading.Thread(target=self.run_sampling) #init thread
         
         self.button2 = tk.Button(self, text="Start", font=('Helvetica', 18),
                            command= combine_funcs(self.Threading,
-                            lambda: self.button2.config(text="Creating...", state=tk.DISABLED)))
+                            lambda: self.button2.config(text="Creating...", state=tk.DISABLED, width=35)))
         
-        self.button3 = tk.Button(self, text="Stop", font=('Helvetica', 18), state= tk.DISABLED,
-                           command= self.stop_thread)
+        #self.button3 = tk.Button(self, text="Stop", font=('Helvetica', 18), state= tk.DISABLED, command= self.stop_thread)
         
-        #button1.pack( pady=10, expand=True, side='left')
-        button1.grid(row=row, column=0, pady=100)
+
+        #self.button2.grid(row=row, column=1, pady=100)
+        self.button2.pack( pady=10, expand=True)
+        row+=1
+        #self.button1.grid(row=row, column=0, pady=100)
+        self.button1.pack( pady=10, expand=True, side='left')
         #self.button2.pack( pady=10, expand=True)
-        self.button2.grid(row=row, column=1, pady=100)
         #self.button3.pack( pady=10, expand=True, side='right')
-        self.button3.grid(row=row, column=2, pady=100)
+        #self.button3.grid(row=row, column=2, pady=100)
         
         #self.out_sampling = {'midi_list': list()}
         self.out_ga = {'music_path': 'init', 'best_score': float(0.0)}
@@ -526,7 +530,8 @@ class PageFour(tk.Frame):
         
         user_data = user_input(bpm, path, mod, fb, section_size)
         
-        self.button3.configure(text = "Stop", state= tk.NORMAL)
+        #self.button3.configure(text = "Stop", state= tk.NORMAL)
+        self.button1.configure(text = "Go Back", state= tk.DISABLED)
         #'''
         from main import Sampling_and_Mod
         train_bool=self.controller.shared_data['train'].get()
@@ -535,6 +540,7 @@ class PageFour(tk.Frame):
         if train_bool==True:
             train=1
         else: train=0
+
         
         user_info, midi_info_out, sample_info, sample_train_info, section_info, midi_info_real = Sampling_and_Mod(user_data, self.event ,
                                                                                                                    train, self.button2)
@@ -551,7 +557,7 @@ class PageFour(tk.Frame):
         
         from main import main_GA_PREPOP
         info_GA, class_idx, Pop, df = main_GA_PREPOP(self.in_pp['user_info'],
-                                    self.in_pp['midi_info_out'], self.in_pp['sample_info'])
+                                    self.in_pp['midi_info_out'], self.in_pp['sample_info'], self.button2)
         
         
         self.out_ga_prepop = {'info_GA': info_GA , 'class_idx': class_idx , 'Pop': Pop , 'df': df}
@@ -565,7 +571,7 @@ class PageFour(tk.Frame):
         music_path, best_score, sample_Ind = main_GA(self.in_gen2['user_info'], self.in_gen2['sample_info'],
                                          self.in_gen1['class_idx'], self.in_gen2['midi_info_out'],
                                          self.in_gen1['Pop'], self.in_gen1['df'], self.in_gen1['info_GA'],
-                                          self.in_gen2['midi_info_real'])
+                                          self.in_gen2['midi_info_real'], self.button2)
         
         
         self.out_ga = {'music_path': music_path, 'best_score': best_score, 'sample_Ind': sample_Ind}
@@ -575,7 +581,7 @@ class PageFour(tk.Frame):
         #reconfigure button to pass to next phase
         self.button2.configure(text = "Listen to Arrangement!", font=('Helvetica', 16),
                                command = lambda: self.controller.show_frame("PageFive"),
-                               state=tk.NORMAL)
+                               state=tk.NORMAL, width=25)
         
 
         
@@ -1029,12 +1035,13 @@ class PageSix(tk.Frame):
         self.start_synth = tk.Button(self, text="Start Synthesis",
                                      font=('Helvetica', 18), state=initial_state,
                     command=combine_funcs(lambda: self.start_synth.config(text="Creating...",
-                                                                          state= tk.DISABLED),
+                                                                          state= tk.DISABLED, width = 40),
                                                             self.Threading))#controller.show_frame("PageTen"))
+        self.start_synth.config(width=20)
 
         row+=1
         
-        self.start_synth.grid(row=row, column=2, columnspan=3, pady=20)
+        self.start_synth.grid(row=row, column=1, columnspan=5, pady=20)
         row+=1
 
         #################################################################################################
@@ -1087,12 +1094,12 @@ class PageSix(tk.Frame):
         
         from main import main_synth_GA
         synth_path = main_synth_GA(user_info, midi_info_out, info_GA, sample_info,
-                                   Ind_sample, Ind_synth, synths, midi_info_real)
+                                   Ind_sample, Ind_synth, synths, midi_info_real, self.start_synth)
         
         self.out_synth_path = synth_path
         #'''
         
-        self.start_synth.configure(text = "Listen to Arrangement!", state= tk.NORMAL,
+        self.start_synth.configure(text = "Listen to Arrangement!", state= tk.NORMAL, width = 25,
                                command = lambda: self.controller.show_frame("PageTen"))
             
 class PageSeven(tk.Frame):
@@ -1746,6 +1753,7 @@ class PageTen(tk.Frame):
         ######################################################################################
         
         def close_window():
+            pygame.mixer.quit()
             self.controller.destroy()
         
         close_button = tk.Button(self, text="Close", font=('Helvetica', 18),

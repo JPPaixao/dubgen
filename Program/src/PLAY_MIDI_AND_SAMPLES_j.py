@@ -1,8 +1,10 @@
-# -*- coding: utf-8 -*-
 """
 Created on Fri May 27 15:48:35 2022
 
-@author: JP
+@author: João Paixão
+@email: joao.p.paixao@tecnico.ulisboa.pt
+
+@brief: Playback function that generates wav/mp3 files of MIDI Arrangement
 """
 import MIDI_PROCESS_j as mp
 from SYNTH import SYNTH
@@ -23,16 +25,16 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+# shift pitch of sound
 def pitch_shift(sample, note_target, sr, note_original):
     sample = librosa.effects.pitch_shift(sample, sr=sr,
                 n_steps=note_target-note_original, bins_per_octave=12)
     
     return sample
 
+
+#applies velocity attack attenuation and cuts input sound to desired duration
 def envelope(sample, velocity, duration, sr):
-    
-    # Normalize the sample
-    #sample = sample / np.max(sample)
     if velocity<127:
         # Calculate the velocity scaling factor and attack time
         scaling_factor = velocity / 127
@@ -71,7 +73,6 @@ def get_range_parameters():
     Af_melo_ceiling = {'cutoff_floor': 200.0, 'cutoff_ceiling': 10_000.0, 'lfo_floor':3.0,
                   'lfo_ceiling': 5.0}
     
-    
     #granular
     Gr_bass_floor = {'grain_size': 0.001, 'grain_space': 0}
     Gr_bass_ceiling = {'grain_size': 0.01, 'grain_space': 1}
@@ -103,12 +104,9 @@ def get_range_parameters():
     return param_range
 
 
+# gets original pitch of every sample in the Arrangement 
 def Get_MIDI_pitch(Ind, sr, Signals, sample_info):
-    #visited_samples: samples que já foram analizadas
-    #visited_info: pitch e tuning dessas samples já analizadas 
-    
-    #import sounddevice as sd
-    
+    #visited_info: pitch and tuning of visited samples   
     Ind_pitch = np.zeros(np.shape(Ind))
     Ind_tuning = np.zeros(np.shape(Ind))
     
@@ -118,53 +116,39 @@ def Get_MIDI_pitch(Ind, sr, Signals, sample_info):
                 samp_idx = int(np.where(np.array(sample_info.visited_samples)==Ind[inst][sec])[0])
                 Ind_pitch[inst][sec] = sample_info.visited_info[samp_idx][0]
                 Ind_tuning[inst][sec] = sample_info.visited_info[samp_idx][1]
+                
             else:        
-                #print('sample: ', Ind[inst][sec])
-            
                 sample = Signals[Ind[inst][sec]]/sample_info.norm_coef[sample_info.sample_idx[Ind[inst][sec]][0]]
                 Ind_pitch[inst][sec], og_freq, Ind_tuning[inst][sec] = Pitch_Detection(sample, sr)
                 
                 sample_info.visited_samples.append(Ind[inst][sec])
                 sample_info.visited_info.append([Ind_pitch[inst][sec] , Ind_tuning[inst][sec]])
-                #undoc para verificar pitch detection (tb há prints no Pitch_detector)
-    # =============================================================================
-    #             note=librosa.midi_to_note(Ind_pitch[inst][sec])
-    #             print('Playing sample with detected pitch: ', note, ' (',librosa.note_to_hz(note) ,' Hz)')
-    #             sd.play(sample, 22050)
-    #             plt.plot(og_freq)
-    #             aux=Ind[inst][sec]
-    #             plt.title('Sample: %d' % aux)
-    #             plt.show()
-    # =============================================================================
-            
-                  
+
     return Ind_pitch, Ind_tuning
 
-def Exp_func_down(x): # faz com que o sinal fique demasiado square wave :( talvez é melhor experimentar uma função que reduz só amplitude tipo um envelope
+
+# exponentially decrescent function
+def Exp_func_down(x):
     y = (1-(math.exp(1-x)))/(1-math.exp(1))
     return y
 
+
+# exponentially crescent function
 def Exp_func_up(x):
     y = ((math.exp(x))-1)/(math.exp(1)-1)
     return y
 
-def Unclipping(sample, offset, smoothing_level=0.2): #smoothen sustain of sample by applying a function to the last "smoothing level"-percentage of the signal
-    #window não está a servir para nada...
-    
-    #para o ataque do som
-    #ending_point = round(len(sample)*(1-(smoothing_level/2))) #pode ser controlado pela velocidade
+
+# smoothen sustain of sample by applying a function to the last "smoothing level"-percentage of the signal
+def Unclipping(sample, offset, smoothing_level=0.2):
+    #for the sound's attack:
     ending_point = round(len(sample)*(smoothing_level/2))
-    #para o release do som
-    starting_point = round(len(sample)*(1-smoothing_level))    
-    
-    #starting_volume = max(sample[starting_point-int(len(sample)*window):starting_point])
-    
-    #para o ataque
     for s in range(0,ending_point):
         x = s/ending_point
-        sample[s]=Exp_func_up(x)*sample[s]    
-    
-    #para o release
+        sample[s]=Exp_func_up(x)*sample[s]
+        
+    #for the sound's release:
+    starting_point = round(len(sample)*(1-smoothing_level))    
     for s in range(starting_point,len(sample)):
         x = (s-starting_point)/(len(sample)-starting_point)
         sample[s]=Exp_func_down(x)*sample[s]
@@ -173,22 +157,10 @@ def Unclipping(sample, offset, smoothing_level=0.2): #smoothen sustain of sample
         sample = np.append(sample, np.zeros(offset))
 
     return sample
-
-def CONFIRM_SAMPLES(Ind, sample_info):
-    filenames = sample_info.filenames
-    sample_idx = sample_info.sample_idx
-    
-    for i in range(len(Ind)):
-        print('inst',i,':')
-        for s in range(np.shape(Ind)[1]):
-            sample = Ind[i][s]
-            print('sample', sample,'at section', s, ':' )
-            sound = sample_idx[sample][0]
-            print('sound:', filenames[sound])
-    return
             
+
+# adjust IND number of sections to desired length
 def adjust_IND(Ind, midi_info_list):
-    
     desired_length=0
     
     for info_midi in midi_info_list:
@@ -207,11 +179,24 @@ def adjust_IND(Ind, midi_info_list):
         adjusted_sequences.append(np.array(adjusted_sequence))
     return np.array(adjusted_sequences)
 
-#ISTO É SÓ EM MONO!!!!! O FLAT_SAMP SÓ VEM EM FORMATO MONO E SR=22050!! DEPOIS TEM DE SE IMPLEMENTAR VERSAO STEREO
+
+#write mp3 file from array
+def write_mp3(f, sr, x, normalized=False):
+
+    channels = 2 if (x.ndim == 2 and x.shape[1] == 2) else 1
+    if normalized:  # normalized array - each item should be a float in [-1, 1]
+        y = np.int16(x * 2 ** 15)
+    else:
+        y = np.int16(x)
+    song = pydub.AudioSegment(y.tobytes(), frame_rate=sr, sample_width=2, channels=channels)
+    song.export(f, format="mp3", bitrate="320k")
+    
+
+#playback function: create wav and mp3 files for MIDI Arrangement with chosen samples and synth parameters(optional)
 def PLAYBACK_midi_samples(Ind, user_info, midi_info_list, 
                           sample_info, midi_files, sr=22050, BPM=120, ex=-1, id_name=str(), first_sec = 0, 
                           synth = -1, synths_param=list(), synths=list(),
-                          Parameters_types = list()):
+                          Parameters_types = list(), tkinter = None):
     
     sys.path.append(user_info.sound_folder)
     sys.path.append(user_info.midi_folder)
@@ -219,51 +204,37 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
     #adjust from 5 sections to the original number of sections
     Ind = adjust_IND(Ind, midi_info_list)
     
-    #n_inst = np.shape(Ind)[0]
     n_sections = np.shape(Ind)[1]
     inst_name = ['Bass', 'Harmony', 'Melody']
     
     Signals = sample_info.flat_samp
-    
     Ind_pitch, Ind_tuning = Get_MIDI_pitch(Ind, sr, Signals, sample_info)
     
     Inst_signal = [[]]*len(midi_files) #saving signal for every instrument
     Inst_signal_synth = [[]]*len(midi_files) #saving signal for every instrument
-    
-    aux=0
-    
     sound_filenames=[]
     sound_filenames_synth = []
     
     #for the synth (numeric range of parameters)
     parameters_range_list = get_range_parameters()
     
-    #print('first section: ', first_sec)
-    #CONFIRM_SAMPLES(Ind, sample_info)
-    
-    #ISTO TALVEZ ASSUME QUE TODOS OS MIDIS VAO SER DO MESMO TAMANHO!!
-    for inst in range(0,len(midi_files)): #for each midi/inst
-        print("\r\033[2KGenerating Arrangement... (Instrument {}/{})".format(inst, 3),
-              end="", flush=True)
+    for inst in range(0,len(midi_files)):
+
+        text = 'Generating Arrangement... (Instrument ' + str(inst+1) + '/' + str(3)+ ' )'
+        if tkinter !=None: tkinter.config(text=text)
     
         csv_strings = midi_info_list[inst].csv_strings
-        midi_signal = midi_info_list[inst].midi_signal
         velocity = midi_info_list[inst].velocity
         ppq = midi_info_list[inst].ppq
-        
         window_size = user_info.section_size*4*ppq 
-        
-        section_type = midi_info_list[inst].section_type
-        #n_sections = midi_info_list[inst].n_sections
         n_sections = np.shape(Ind)[1]
         beg_compass = midi_info_list[inst].beg_compass #this is in midi ticks!!
     
-        #########################for the case where IND has less sections than total####
+        # for the case where IND has less sections than 5
         if first_sec > 0:
             BEG = beg_compass + (window_size*first_sec)
         else: BEG = 0
         END = max(BEG , beg_compass) + (window_size*n_sections)
-        ################################################################################
         
         note_on = 'Note_on_c'
         note_off = 'Note_off_c'
@@ -272,12 +243,14 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
         
         delta_time = 60/(BPM*ppq) #time of each tick
         samples_per_tick = delta_time*sr
-        sec=0    
+        sec=0
+        silence=0
+        msg_f=0
+        aux_beg=0 #just to flag the beggining of the song
+        out_path = os.path.dirname(user_info.main_path)+'/output'
     
         if synth ==1:
-            
             #get parameters range for said synth and inst
-            #parameters_range = parameters_range_list[synths[inst]][inst]
             parameters_range = parameters_range_list
             
             #init synth class and choose type of synth
@@ -285,31 +258,20 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
                                parameters_range, synths_param[inst], 
                                round(window_size*samples_per_tick),
                                midi_info_list[inst], round(beg_compass*samples_per_tick), inst)
-
             
             #function that applies the synthesis
             Synthesize  = inst_synth.synthetize
         
-        Inst_signal[inst] = np.append(Inst_signal[inst], np.zeros(round(beg_compass*samples_per_tick))) #silencio inicial para sinal começar no mesmo sitio que o midi (pode se retirar caso seja silencio muito grande...)
+        #silencio inicial para sinal começar no mesmo sitio que o midi (pode se retirar caso seja silencio muito grande...)
+        Inst_signal[inst] = np.append(Inst_signal[inst], np.zeros(round(beg_compass*samples_per_tick)))
         
         if synth ==1:
             Inst_signal_synth[inst] = np.append(Inst_signal_synth[inst], np.zeros(round(beg_compass*samples_per_tick)))
         
-        #print(round(beg_compass*samples_per_tick))
-        #print('ppq_',inst,': ',ppq)     
-        #beats =np.zeros(1)
-        
-        silence=0
-        msg_f=0
-        aux_beg=0 #just to flag the beggining of the song
-        
-        out_path = os.path.dirname(user_info.main_path)+'/output'
-        
-        
         for msg in csv_strings[msg_beg:msg_end+1]:
             msg_list = msg.split(', ')
             
-            #if msg in midi surpasses the number of sections, stop for loop
+            #if msg in midi surpasses the number of sections, stop "for" loop
             if int(msg_list[1])>END:
                 break
             elif msg_list[2] == note_on:
@@ -325,47 +287,33 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
                 else:
                     msg_i = round(int(msg_list[1])*samples_per_tick) #convert to sampling 'time'
                     silence = msg_i-msg_f
-                #beats= np.append(beats, msg_i)
 
-                
             elif msg_list[2] == note_off:
                 if (int(msg_list[1]) > (window_size*(sec+1)) + beg_compass) and (sec+1<n_sections):
                     sec+=1 #new section
-                    aux=0
-                    #print('new_section:', sec)
         
-            
                 msg_f = round(int(msg_list[1])*samples_per_tick) #convert to sampling 'time'
                 duration = msg_f-msg_i
                 
-                ###############################
                 if sec<first_sec:
                     idx = 0
                 else:
                     idx = sec - first_sec
-                ###############################    
 
                 sample = Signals[Ind[inst][idx]]/sample_info.norm_coef[sample_info.sample_idx[Ind[inst][idx]][0]]
-                
                 
                 original_note = Ind_pitch[inst][idx]
                 tuning_steps = Ind_tuning[inst][idx]
                 sample_shifted = pitch_shift(sample, note, sr, original_note + tuning_steps)
-                
+
                 sample_chopped, offset = envelope(sample_shifted , velocity, duration, sr)
-                
                 unclipped = Unclipping(sample_chopped, offset, smoothing_level=0.2)
                 
-                if synth == 1:
-                    
+                if synth == 1:         
                     pitch = librosa.midi_to_hz(note)
-                    
-                    #print('note_beg (msg_i):', msg_i)
-                    #print('note_end (msg_f):', msg_f)
-                    
                     synthed_sample = Synthesize(unclipped.copy(), msg_i, msg_f, sec, pitch)
                     
-                    #unclip again because of harsh sounds synthesized
+                    #unclip again because of synthesized harsh sounds
                     synthed_sample = Unclipping(synthed_sample, 0, smoothing_level=0.4)
                     
                     # prepending the silence that came before the current note (space between notes)
@@ -382,28 +330,22 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
                 if silence>0:
                     unclipped = np.append(np.zeros(silence), unclipped)
                 
-                compressed_sample = comp.arctan_compressor(unclipped, 1)
-                
-                #Inst_signal[inst]=np.append(Inst_signal[inst], np.zeros(silence))               
+                compressed_sample = comp.arctan_compressor(unclipped, 1)             
                 Inst_signal[inst]=np.append(Inst_signal[inst], compressed_sample)
                 
-                
             else:
-                print('\nCorrupted file\n')
+                print('\nCorrupted MIDI file\n')
                 break
     
         compressed_inst = comp.arctan_compressor(Inst_signal[inst], factor=1)
         
-        #BEG and END on sampling time
+        #BEG and END on "sampling time"
         BEG_s=round(int(BEG)*samples_per_tick)
         END_s=round(int(END)*samples_per_tick)
         
         if synth==1:
             comp_synth_inst = comp.arctan_compressor(Inst_signal_synth[inst])
             comp_synth_inst = comp_synth_inst[BEG_s:min(len(comp_synth_inst),END_s)]
-        
-        #plt.plot(Inst_signal[inst])
-        #plt.show()
         
         compressed_inst = compressed_inst[BEG_s:min(len(compressed_inst),END_s)]
         
@@ -417,24 +359,18 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
             sound_filenames.append(out_path+'/examples/example_samples/'+inst_name[inst]+'_ex'+ str(ex) +'_sound.wav')
             sf.write(sound_filenames[-1],compressed_inst,sr)
             
-    
     Processed_Inst = Pedalboard_func(sound_filenames, sr)
-    
     max_len = max(len(Processed_Inst[0].flatten()),len(Processed_Inst[1].flatten()),len(Processed_Inst[2].flatten()))
     
     for i in range(len(midi_files)):
         Processed_Inst[i] = np.append(Processed_Inst[i].flatten(),np.zeros(max_len-len(Processed_Inst[i].flatten())))  
     
     Final_Signal = np.array(Processed_Inst[0]+Processed_Inst[1]+Processed_Inst[2])/3#TEM DE TER O MM TAMANHO!!!
-    
-    
     Final_Signal_compressed = comp.arctan_compressor(Final_Signal, factor=1)
-    
     
     if ex==-1:        
         if synth==1:
             Processed_Inst_synth = Pedalboard_func(sound_filenames_synth, sr)
-            
             max_len_synth = max(len(Processed_Inst_synth[0].flatten())
                           ,len(Processed_Inst_synth[1].flatten()),
                           len(Processed_Inst_synth[2].flatten()))
@@ -444,14 +380,11 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
                                               np.zeros(max_len_synth-len(Processed_Inst_synth[i].flatten())))  
             
             Final_Signal_synth = np.array(Processed_Inst_synth[0]+Processed_Inst_synth[1]+Processed_Inst_synth[2])/3
-                   
             Final_Signal_synth_comp = comp.arctan_compressor(Final_Signal_synth, factor=1)      
             
             filename='Best'+'_sound'+'_synth'
             file_path = out_path+'/output_music/'+'SYNTH/'
-        
             sf.write(file_path+filename+id_name+'.wav' , Final_Signal_synth_comp ,sr)
-        
             #for the mp3 player
             write_mp3(file_path+'best_sound_mp3_synth/'+filename+'.mp3', sr, Final_Signal_synth_comp, normalized=True)  
 
@@ -461,23 +394,17 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
         else:
             filename='Best'+'_sound'+id_name
             file_path = out_path+'/output_music/'+ 'NO_SYNTH/'
-            
-            sf.write(file_path+filename+'.wav' , Final_Signal_compressed ,sr)
-            
+            sf.write(file_path+filename+'.wav' , Final_Signal_compressed, sr)        
             #for the mp3 player
             write_mp3(file_path+'best_sound_mp3/'+filename+'.mp3', sr, Final_Signal_compressed, normalized=True)
 
-        
     else:
         filename = 'Example'+ str(ex) +'_sound'
         file_path = out_path+'/examples/example_music/'
-        
-        sf.write(file_path + filename+'.wav' , Final_Signal_compressed ,sr ) #because pygame can only fast-forward music if its mp3
-        
+        sf.write(file_path + filename+'.wav' , Final_Signal_compressed, sr)
         #for the mp3 player
         write_mp3(file_path+'MP3/'+filename+'.mp3', sr, Final_Signal_compressed, normalized=True)
         
-        #############################dataframe?###############################3
         df_ind=pd.DataFrame()
         idx=0
         
@@ -485,23 +412,9 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
             key = 'inst_'+str(idx)
             df_ind[key] = list(sections)
             idx+=1
-        
-        
+             
         ind_csv_label = 'Example'+ str(ex) +'_sound.csv'
         df_ind.to_csv(out_path+'/GA1_training/Individuals/'+ 
                       ind_csv_label, index=False)
-        ########################################################################
-    #print("MUSIC PATH: ",file_path+'best_sound_mp3/'+filename+'.mp3') 
-    print("\r\033[2KArrangement Created!", end= "", flush=True)
     
-    return file_path+'best_sound_mp3/'+filename+'.mp3' #playback_signal path (and filename)
-
-def write_mp3(f, sr, x, normalized=False):
-    """numpy array to MP3"""
-    channels = 2 if (x.ndim == 2 and x.shape[1] == 2) else 1
-    if normalized:  # normalized array - each item should be a float in [-1, 1)
-        y = np.int16(x * 2 ** 15)
-    else:
-        y = np.int16(x)
-    song = pydub.AudioSegment(y.tobytes(), frame_rate=sr, sample_width=2, channels=channels)
-    song.export(f, format="mp3", bitrate="320k")
+    return file_path+'best_sound_mp3/'+filename+'.mp3'

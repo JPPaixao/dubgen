@@ -1,27 +1,27 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Oct 19 15:14:53 2022
 
-@author: Jan Wilczek
-"""
+@author: João Paixão
+@email: joao.p.paixao@tecnico.ulisboa.pt
 
-from scipy import signal
+@brief: Auto-Filter: Low/High Pass Filter modulated by LFO.
+
+All-Pass Filter based on Jan Wilczek Implementation:
+    https://thewolfsound.com/allpass-based-lowpass-and-highpass-filters/
+"""
 import numpy as np
 
-from lfo_shaper import lfo_shaper_func as shape_lfo
-import matplotlib.pyplot as plt
-import sounddevice as sd
 
-
+#compute a1 coefficient
 def a1_coefficient(break_frequency, sampling_rate):
     tan = np.tan(np.pi * break_frequency / sampling_rate)
     return (tan - 1) / (tan + 1)
 
 
+# compute all-pass filter output signal
 def allpass_filter(input_signal, break_frequency, sampling_rate):
     # Initialize the output array
     allpass_output = np.zeros_like(input_signal)
-
     # Initialize the inner 1-sample buffer
     dn_1 = 0
 
@@ -42,6 +42,7 @@ def allpass_filter(input_signal, break_frequency, sampling_rate):
     return allpass_output
 
 
+# compute high/low-pass filter output signal (using an all-pass filter)
 def allpass_based_filter(input_signal, cutoff_frequency, \
     sampling_rate, highpass=False, amplitude=1.0):
     # Perform allpass filtering
@@ -55,16 +56,15 @@ def allpass_based_filter(input_signal, cutoff_frequency, \
 
     # Sum the allpass output with the direct path
     filter_output = input_signal + allpass_output
-
     # Scale the amplitude to prevent clipping
     filter_output *= 0.5
-
     # Apply the given amplitude
     filter_output *= amplitude
 
     return filter_output
 
 
+#auto-filter synthesizer
 def auto_filter_synth(input_signal, sr, param_dict , automation_beginning,
                       automation_ending, section, automation, pitch):
     
@@ -72,11 +72,8 @@ def auto_filter_synth(input_signal, sr, param_dict , automation_beginning,
         print('length of signal in autofilter:', len(input_signal))
         filter_output=input_signal
     else:
-    
         parameters = param_dict[section]
-        
         high_pass = parameters['high_pass']
-        
         cutoff_frequency = automation[automation_beginning:automation_ending+1]
     
         if len(cutoff_frequency)==0:

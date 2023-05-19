@@ -1,0 +1,13 @@
+numpy
+librosa
+pandas
+scipy
+scikit-learn
+librosa
+soundfile
+pydub
+tk            
+pillow
+pygame
+py_midicsv
+pedalboard

@@ -1,18 +1,20 @@
-# -*- coding: utf-8 -*-
 """
 Created on Tue Apr 5 09:49:25 2022
 
-@author: JP
+@author: João Paixão
+@email: joao.p.paixao@tecnico.ulisboa.pt
+
+@brief: script with functions for Sampling Processing: converting to arrays,\\
+    cutting into samples, extracting features and classifying sounds
 """
+
 import numpy as np
 import librosa
 import pandas as pd
 import soundfile as sf
-import sys
 import os
 
 from sklearn.svm import SVC
-from sklearn.metrics import confusion_matrix
 from sklearn.utils import shuffle
 from sklearn.model_selection import GridSearchCV
 
@@ -22,7 +24,7 @@ from LSTM_j import Norm_and_Scale
 import warnings
 warnings.filterwarnings("ignore")
 
-
+# RMS Normalization
 def RMS_Norm(sig,rms_level):
     #rms level is in dBs
     # linear rms level and scaling factor
@@ -33,19 +35,21 @@ def RMS_Norm(sig,rms_level):
     norm_sig = (sig * coef)
     return norm_sig, coef
 
+#normalize audio to range [0,1]
 def normalize_audio(sig):
     max_amp = max(abs(sig))
     return sig/max_amp, (1/max_amp)
 
+#find input audio onset markers
 def Find_Onset(sig):
-    window = 2048   #TAMBÉM SE PODE TENTAR AUTOCORRELAÇÃO
+    window = 2048
     onset_stamps = [0]*(round(len(sig)/window)+1)
     idx = 0
     e=0.0001
     
     for w in range(1,round(len(sig)/window)):
         if sum(abs(sig[window*(w-1):window*w]))/(sum(abs(sig[w*window:(w+1)*window]))+e)<0.7:
-            onset_stamps[idx] = window*(w-1) #-1 para cortar antes do onset
+            onset_stamps[idx] = window*(w-1)
             idx+=1
     onset_stamps = onset_stamps[0:idx]
     
@@ -56,8 +60,9 @@ def Find_Onset(sig):
     
     return np.array(onset_stamps)
 
+#remove silence from audio
 def Remove_Silence(sample):
-    #print("Removing Silence...")
+
     yt, idx = librosa.effects.trim(sample, top_db=8, frame_length=1024, hop_length=512)
 
     e_frame=10000 #almost 0.5 seconds
@@ -95,17 +100,19 @@ def Remove_Silence(sample):
 
     return yt, idx
 
+
+#takes onset stamps and creates individual samples
 def Create_Samples(sig, onset_stamps, window, norm_coef, sig_stereo):
     samples_for_inst = [[0]]*(len(onset_stamps)) #downsampled and mono sample
-    samples_for_inst_stereo = [[]]*(len(onset_stamps)) #44.1 KHz sample and stereo (or mono)
     aux=0
     
     volume_avg = sum(abs(sig))/len(sig)
     
     for i in range(len(onset_stamps)-1):
         delta = onset_stamps[i+1]-onset_stamps[i]
-
-        if sum(abs(sig[onset_stamps[i]:onset_stamps[i+1]]))/delta>0.3*volume_avg and delta > 4*window: #avoid silence and short samples
+        
+        #avoid silence and short samples
+        if sum(abs(sig[onset_stamps[i]:onset_stamps[i+1]]))/delta>0.3*volume_avg and delta > 4*window: 
             
             #in this next function, sampling is a half
             yt, idx = Remove_Silence(sig[onset_stamps[i]:onset_stamps[i+1]]/norm_coef)
@@ -117,8 +124,9 @@ def Create_Samples(sig, onset_stamps, window, norm_coef, sig_stereo):
     return samples_for_inst[0:aux]
 
 
+# determines SPECTRAL ADSR markers of a sound
 def Envelope_ADSR(feat_vec, Y, Spec, feat_aux):
-    #**COMPUTE ADSR**
+   
     size_box = int(np.ceil(len(feat_vec[2])/20))
     box = np.ones(size_box)/size_box
     poly = feat_vec[2]
@@ -127,9 +135,7 @@ def Envelope_ADSR(feat_vec, Y, Spec, feat_aux):
     poly2 = np.convolve(poly1, box, mode='same')# smoothing 2
     poly3 = np.convolve(poly2, box, mode='same')# smoothing 3
     
-    poly_der = np.diff(poly3) #DERIVATIVE OF POLY FIT (ONLY ONE ORDER OF COEF)
-    #A = np.argmax(poly3) #peak derivative before A (Attack)
-    max_poly_der = max(poly_der)
+    poly_der = np.diff(poly3)
     
     #in case we dont detect a correct adsr
     len_poly=len(feat_vec[2])
@@ -140,99 +146,109 @@ def Envelope_ADSR(feat_vec, Y, Spec, feat_aux):
     if len(zero_crossings) ==0:
         return fake_adsr
     
+    #Attack: first derivative zero after prev_A
     A = max(1,zero_crossings[0])
     
-    zero_cross = zero_crossings[zero_crossings>A] #only consider zeros after A
+    #only consider zeros after A
+    zero_cross = zero_crossings[zero_crossings>A]
     
     if len(zero_cross) > 1:
-        #Attack: first derivative zero after prev_A
-        D = zero_cross[1] #DECAY 2nd zero of derivative
         
-
+        D = zero_cross[1] #DECAY 2nd zero of derivative
         S= zero_cross[-1]
-        if (A<D<S) and ((S-A)>(size_box*4)): #condição do sizebox só para não ser demasiado pequeno
-            
-            #plot_ADSR(poly, poly3, poly_der, A, D, S, feat_aux, Y, Spec)
-            
+        
+        if (A<D<S) and ((S-A)>(size_box*4)):
             return [A, D, S]
         else:
-            #print("\nFailed to detect ADSR in sound: ",s,'\n')
             return fake_adsr
             
     else:
-        #print("\nFailed to detect ADSR in sound: ",s,'\n')
         return fake_adsr
 
+
+# Create a "light" Feature vector
 def Redux_Features(feature_vec):
     mfcc = feature_vec[3]
     n_mfcc = len(mfcc)
-    #spec_contrast = feature_vec[0]
-    #n_contrast = len(spec_contrast)  
-    #n_features=5 + n_mfcc + n_contrast -1 #number of features for classification
-    
     n_features=5 + n_mfcc -1
-    features_classify = [[]]*n_features #n_samples
+    features_classify = [[]]*n_features 
     
     A = feature_vec[10][0] #Attack index
     S = feature_vec[10][2] #Sustain index
     
-    #media dos mfccs dentro do decay e sustain (media para cada coeficiente)    
-    features_classify[0:n_mfcc] = (np.sum(mfcc[:,A:S], axis = 1)/(S-A))#/200 #mean MFCC coef for the A-S interval
-    # normalization by a somewhat high value (empirical)
-    
+    #mean MFCC coef for the A-S interval
+    features_classify[0:n_mfcc] = (np.sum(mfcc[:,A:S], axis = 1)/(S-A)) 
     #mean centroid #WITH LOG NORMALIZATION
-    features_classify[n_mfcc] = float(np.sum(feature_vec[4][:,A:S], axis = 1)/(S-A))#/8192 #normalization by maximum value on spectogram
-    
+    features_classify[n_mfcc] = float(np.sum(feature_vec[4][:,A:S], axis = 1)/(S-A))
     #mean roll of (top and bottom)
-    features_classify[n_mfcc + 1] = float(np.sum(feature_vec[8][:,A:S], axis = 1)/(S-A))#/8192
-    features_classify[n_mfcc + 2] = float(np.sum(feature_vec[9][:,A:S], axis = 1)/(S-A))#/8192
-    
+    features_classify[n_mfcc + 1] = float(np.sum(feature_vec[8][:,A:S], axis = 1)/(S-A))
+    features_classify[n_mfcc + 2] = float(np.sum(feature_vec[9][:,A:S], axis = 1)/(S-A))
     #mean spectral flatness
     features_classify[n_mfcc + 3] = float(np.sum(feature_vec[1][:,A:S], axis = 1)/(S-A))
     
-    #features_classify[n_mfcc + 4:] = np.sum(spec_contrast[:,A:S], axis = 1)/((S-A)*10)
-    
-    return features_classify #one per sample
+    return features_classify
 
+# Create a bigger Feature vector
+def Redux_Features_bigger(feature_vec):
+    mfcc = feature_vec[3]
+    features_classify = list()
+    
+    A = feature_vec[10][0] #Attack index
+    D = feature_vec[10][1] #Decay index
+    S = feature_vec[10][2] #Sustain index
+    
+    #mean mfcc inside A-S interval    
+    features_classify.extend(list(np.sum(mfcc[:,A:D], axis = 1)/(D-A)))
+    features_classify.extend(list(np.sum(mfcc[:,D:S], axis = 1)/(S-D)))
+    #mean centroid WITH LOG NORMALIZATION
+    features_classify.extend(list(np.sum(feature_vec[4][:,A:D], axis = 1)/(D-A)))
+    features_classify.extend(list(np.sum(feature_vec[4][:,D:S], axis = 1)/(S-D)))
+    #mean roll of (top and bottom)
+    features_classify.extend(list(np.sum(feature_vec[8][:,A:D], axis = 1)/(D-A)))
+    features_classify.extend(list(np.sum(feature_vec[8][:,D:S], axis = 1)/(S-D)))
+    #mean roll of (top and bottom)
+    features_classify.extend(list(np.sum(feature_vec[9][:,A:D], axis = 1)/(D-A)))
+    features_classify.extend(list(np.sum(feature_vec[9][:,D:S], axis = 1)/(S-D)))
+    #mean spectral flatness
+    features_classify.extend(list(np.sum(feature_vec[1][:,A:D], axis = 1)/(D-A)))
+    features_classify.extend(list(np.sum(feature_vec[1][:,D:S], axis = 1)/(S-D)))
+    
+    return features_classify
+
+
+# features for MISC Classification
 def MISC_Features(feature_vec):
     spec_contrast = feature_vec[0]
     n_contrast = len(spec_contrast)  
-    #n_features=5 + n_mfcc + n_contrast -1 #number of features for classification
-    
     n_features= n_contrast + 4
-    features_classify = [[]]*n_features #n_samples
+    features_classify = [[]]*n_features
     
     A = feature_vec[10][0] #Attack index
     S = feature_vec[10][2] #Sustain index
     
-    features_classify[:n_contrast] = (np.sum(spec_contrast[:,A:S], axis = 1)/(S-A))#/100
-    
+    #spec_contrast
+    features_classify[:n_contrast] = (np.sum(spec_contrast[:,A:S], axis = 1)/(S-A))
     #zcr
     features_classify[n_contrast] = float(np.sum(feature_vec[2][:,A:S], axis = 1)/(S-A))
-    #print('zcr:' ,features_classify[n_contrast])
-    
     #spectral flatness
     features_classify[n_contrast +1] = float(np.sum(feature_vec[1][:,A:S], axis = 1)/(S-A))
-    #print('spectral flatness:' ,features_classify[n_contrast +1])
-    
     #bandwidth
-    features_classify[n_contrast +2] = float(np.sum(feature_vec[7][:,A:S], axis = 1)/(S-A))#/1000
-    
+    features_classify[n_contrast +2] = float(np.sum(feature_vec[7][:,A:S], axis = 1)/(S-A))
     #spectral centroid
-    features_classify[n_contrast +3] = float(np.sum(feature_vec[4][:,A:S], axis = 1)/(S-A))#/8192
+    features_classify[n_contrast +3] = float(np.sum(feature_vec[4][:,A:S], axis = 1)/(S-A))
     
     return features_classify
 
-def Create_FeatureSpace(samples, window=2048, SR=22050): #entrar logo dict será mais rapido?
+# Create Feature vectors for all samples
+def Create_FeatureSpace(samples, window=2048, SR=22050):
     n_features = 11
-    feature_vec = [[]]*len(samples) #sque fazer dicionario 2d? inst->sample->lista de listas?
+    feature_vec = [[]]*len(samples)
     feature_classify = [[]]*len(samples)
     feature_misc = [[]]*len(samples)
     feature_bigger = [[]]*len(samples)
     features_cnn = [[]]*len(samples)
     N_FFT = 512
     
-    #print('n samples:', len(samples))
     
     for x in range(0,len(samples)):
         feat_aux=[[]]*n_features
@@ -248,37 +264,27 @@ def Create_FeatureSpace(samples, window=2048, SR=22050): #entrar logo dict será
         feat_aux[3] = librosa.feature.mfcc(y= Y , sr=SR, hop_length=window, n_mfcc=12,n_fft = N_FFT , S = Spec) 
         feat_aux[4] = librosa.feature.spectral_centroid(y=Y, sr=SR, hop_length=window, n_fft = N_FFT , S = Spec)
         feat_aux[5] = librosa.feature.poly_features(y=Y, sr=SR, n_fft = N_FFT , S = Spec, order=2) #define order! talvez um pouco redundante relativamente a um espectrograma
-        #Register (+Dissonance+ Polyphony(?))
+        #Register (+Dissonance+ Polyphony)
         feat_aux[6] = librosa.feature.chroma_stft(y= Y, sr=SR, n_fft = N_FFT , S = Spec)
         feat_aux[7] = librosa.feature.spectral_bandwidth(y=Y, sr=SR, n_fft = N_FFT, S = Spec)
         feat_aux[8] = librosa.feature.spectral_rolloff(y=Y, sr=SR, n_fft = N_FFT, S = Spec, roll_percent=0.99)
         feat_aux[9] = librosa.feature.spectral_rolloff(y=Y, sr=SR, n_fft = N_FFT, S = Spec, roll_percent=0.01) #rolloff min
-        #Poliphony
-        #feature_vec[x][10] = librosa.feature.tonnetz(y=Y, sr = SR)
         
         feat_aux[10] = Envelope_ADSR(feat_aux[5], Y, Spec, feat_aux)
-        #vec=feat_aux[5] #ADSR NÃO ESTÁ A SER UTILIZADO
-        #feat_aux[10] = [0, 0, len(vec[2])-1] #ADSR NÃO ESTÁ A SER UTILIZADO
         
         feature_vec[x] = feat_aux
         
         feature_classify[x] = Redux_Features(feature_vec[x])
-        
-        feature_misc[x] = MISC_Features(feature_vec[x]) #features for miscellaneous classification
-        
-        #print('ADS for sound', x, ':')
+        feature_misc[x] = MISC_Features(feature_vec[x])
         feature_bigger[x]= Redux_Features_bigger(feature_vec[x])
-        #if x==0:
-        #Visualize_Features(Y, feature_vec[x], Spec)
         features_cnn[x] = [get_Features_CNN(feat_aux[3].copy(), time_stamps = feat_aux[10])]
     
     return feature_vec, feature_classify, feature_misc, features_cnn, feature_bigger
 
+
+#get features for CNN model (ADSR frame with mfccs)
 def get_Features_CNN(mfccs, time_stamps=list()):
-    
-    
     mfccs = mfccs.T
-    #fazer medias de forma a ter um quadrado 12*12 (time, coef)
     
     time_steps=4
     time_bins = mfccs.shape[0]
@@ -286,6 +292,7 @@ def get_Features_CNN(mfccs, time_stamps=list()):
     
     reduced_mfccs = np.zeros((time_steps, mfccs.shape[1]))
     
+    #if no ADSR is delivered, create equidistant markers
     if time_stamps==list():
         for i in range(time_steps):
             start_bin = i * bin_size
@@ -302,66 +309,21 @@ def get_Features_CNN(mfccs, time_stamps=list()):
             last_stamp=time_stamp
             i+=1
         
-        
     return reduced_mfccs.T
-
-def Redux_Features_bigger(feature_vec):
-    mfcc = feature_vec[3]
     
-    features_classify = list()
-    
-    A = feature_vec[10][0] #Attack index
-    D = feature_vec[10][1] #Decay index
-    S = feature_vec[10][2] #Sustain index
-    
-    #print(A,',',D,',',S)
-    
-    #media dos mfccs dentro do decay e sustain (media para cada coeficiente)    
-    #features_classify.extend(list(np.sum(mfcc[:,:A], axis = 1)/(A)))
-    features_classify.extend(list(np.sum(mfcc[:,A:D], axis = 1)/(D-A)))
-    features_classify.extend(list(np.sum(mfcc[:,D:S], axis = 1)/(S-D)))
-    #features_classify.extend(list(np.sum(mfcc[:,S:], axis = 1)/(np.shape(mfcc)[1]-S)))
-    
-    #mean centroid #WITH LOG NORMALIZATION
-    #features_classify.extend(list(np.sum(feature_vec[4][:,:A], axis = 1)/(A)))
-    features_classify.extend(list(np.sum(feature_vec[4][:,A:D], axis = 1)/(D-A)))
-    features_classify.extend(list(np.sum(feature_vec[4][:,D:S], axis = 1)/(S-D)))
-    #features_classify.extend(list(np.sum(feature_vec[4][:,S:], axis = 1)/(np.shape(feature_vec[4])[1]-S)))
-    
-    #mean roll of (top and bottom)
-    #features_classify.extend(list(np.sum(feature_vec[8][:,:A], axis = 1)/(A)))
-    features_classify.extend(list(np.sum(feature_vec[8][:,A:D], axis = 1)/(D-A)))
-    features_classify.extend(list(np.sum(feature_vec[8][:,D:S], axis = 1)/(S-D)))
-    #features_classify.extend(list(np.sum(feature_vec[8][:,S:], axis = 1)/(np.shape(feature_vec[8])[1]-S)))
-    
-    #mean roll of (top and bottom)
-    #features_classify.extend(list(np.sum(feature_vec[9][:,:A], axis = 1)/(A)))
-    features_classify.extend(list(np.sum(feature_vec[9][:,A:D], axis = 1)/(D-A)))
-    features_classify.extend(list(np.sum(feature_vec[9][:,D:S], axis = 1)/(S-D)))
-    #features_classify.extend(list(np.sum(feature_vec[9][:,S:], axis = 1)/(np.shape(feature_vec[9])[1]-S)))
-    
-    #mean spectral flatness
-    #features_classify.extend(list(np.sum(feature_vec[1][:,:A], axis = 1)/(A)))
-    features_classify.extend(list(np.sum(feature_vec[1][:,A:D], axis = 1)/(D-A)))
-    features_classify.extend(list(np.sum(feature_vec[1][:,D:S], axis = 1)/(S-D)))
-    #features_classify.extend(list(np.sum(feature_vec[1][:,S:], axis = 1)/(np.shape(feature_vec[1])[1]-S)))
-    
-    return features_classify
-    
-
-
-def get_SVC(Features, n_instruments, true_classes, classifier, misc=1, train=1): #talvez exoerimentar weights??   
+# create SVC model and also return predictions
+def get_SVC(Features, n_instruments, true_classes, classifier, misc=1, train=1):  
     x = Features
     y=true_classes
-    
     x, y = shuffle(x, y)
     
+    #miscellaneous classification
     if misc==1:
         y = list(map(lambda i: 0 if  i==1 or i==2 else i, y))
         y = list(map(lambda i: 1 if i==3 else i, y))
     
+    # if we are creating SVC model, else, we just do predictions
     if train==1:
-        
         parameters = {'kernel':('poly', 'rbf', 'sigmoid'), 'C':[1, 10], 'gamma': ('scale', 'auto'), 
                       'class_weight':('None', 'balanced'), 'decision_function_shape': ('ovo', 'ovr')}
 
@@ -372,15 +334,18 @@ def get_SVC(Features, n_instruments, true_classes, classifier, misc=1, train=1):
     
     return classifier.predict(x), classifier, y
 
-def attribute_closest_samples(Samples_List, Class_MISC, clf, class_id): #if a class has no samples, attribute n samples that are closest to the specific decision boundary
-    n_samples=3 #number of samples to be displaced
+
+#if a class has no samples, attribute n samples that are closest to the specific decision boundary
+def attribute_closest_samples(Samples_List, Class_MISC, clf, class_id):
+    #number of samples to be displaced
+    n_samples=3
     
     #distance to each decision boundary
     boundary_dist = clf.decision_function(Samples_List)
     w_norm = np.linalg.norm(clf.coef_)
     boundary_dist = boundary_dist / w_norm
     
-    #ver qual é mais perto para essa classe...
+    #see what samples are closer to boundary
     dist_class = boundary_dist[:,class_id]
     idx_closest = np.argsort(dist_class)[:n_samples]
     
@@ -388,11 +353,9 @@ def attribute_closest_samples(Samples_List, Class_MISC, clf, class_id): #if a cl
     
     return Class_MISC
 
+#remove detected miscellaneous samples
 def Remove_MISC(Samples_List, prev_samp_list, class_MISC, true_classes, Sample_Label,
                 keep_classes, clf, leave_misc = 0):    
-    #remover misc
-    #update das labels
-    
     idx_keep=np.array([])
     for class_id in keep_classes:
         idx_cl =np.where(np.array(class_MISC)==class_id)[0]
@@ -401,7 +364,7 @@ def Remove_MISC(Samples_List, prev_samp_list, class_MISC, true_classes, Sample_L
             class_MISC = attribute_closest_samples(prev_samp_list, class_MISC, clf, class_id)
             idx_cl =np.where(np.array(class_MISC)==class_id)[0]
         
-        idx_keep = np.append(idx_keep, idx_cl) #guardar indices das samples que é para manter
+        idx_keep = np.append(idx_keep, idx_cl)
     
     if leave_misc==0:
         idx_keep = np.sort(idx_keep).astype('int')
@@ -415,7 +378,6 @@ def Remove_MISC(Samples_List, prev_samp_list, class_MISC, true_classes, Sample_L
     true_classes = list(array_classes[idx_keep])
 
     aux=0
-    
     sample_idx = []
     n_samp = -1
     count_sound = -1
@@ -431,21 +393,22 @@ def Remove_MISC(Samples_List, prev_samp_list, class_MISC, true_classes, Sample_L
    
     return Samples_List_new, true_classes, sample_idx, idx_keep
 
+
+#create wav file
 def Create_wav(Samples, classes, sample_idx, sr, path):
     filetype='.wav'
     
     for s in range(len(sample_idx)):
         if classes[s]==0: inst='BASS '
-            
         elif classes[s]==1: inst='HARMONY '
         else: inst='MELODY '
-        
+    
         sf.write(path+ inst + 'sample_' + str(sample_idx[s][0]) + '_' + str(sample_idx[s][1])
                  + filetype, Samples[sample_idx[s][0]][sample_idx[s][1]], samplerate=sr)
-    
     return
     
 
+#class with sample info
 class info_sample:
     def __init__(self, df_samples, flat_samp, sample_idx, norm_coef,
                  filenames, visited_samples, visited_info):
@@ -457,13 +420,15 @@ class info_sample:
         self.visited_samples = visited_samples
         self.visited_info = visited_info
 
+#class with model info
 class info_model:
     def __init__(self, model_misc, model_inst, scaler_misc, scaler_inst):
         self.model_misc = model_misc
         self.model_inst = model_inst
         self.scaler_misc = scaler_misc
         self.scaler_inst= scaler_inst
-        
+
+#class with pca info
 class info_pca:
     def __new__(cls, *args, **kwargs):
         #print("1. Create a new instance of info_pca.")
@@ -475,13 +440,11 @@ class info_pca:
         self.clf_pca = clf_pca
         self.clf_pca4 = clf_pca4
 
+# processes sounds and cuts them into samples. also gets features and classifies them
 def SAMPLE_PROCESSING(user_info, train=1, leave_misc=0 ,
-                      model_info=None, pca_info_misc=None, pca_info_inst=None):
+                      model_info=None, pca_info_misc=None, pca_info_inst=None, tkinter=None):
     
-    #seria mais rapido alocar logo as keys
-    Sound_Pieces = {}
-    Samples = {} #dictionary assign a key to each instrument's 2d vector: (inst_idx,sample)
-    Feature_vec = {} #same as Samples but for each sample is a feature vector
+    Feature_vec = {}
     Samples_down = {}
     Features_Classify = {}
     Features_Misc = {}
@@ -491,21 +454,20 @@ def SAMPLE_PROCESSING(user_info, train=1, leave_misc=0 ,
     else: folder = user_info.test_path
     
     s = 0
-    n_inst = user_info.n_inst #MISC FICA DE FORA POR ENQUANTO
+    n_inst = user_info.n_inst
     window = 2048
     down_sampling = 22050
     
     Sample_label = []
     true_classes = []
     norm_coef = []
+    filenames = []
+    use_dubgen_model=False
     
     if train==1:
         inst_folders = ['/BASS/', '/HARMONY/', '/MELODY/', '/MISCELLANEOUS/' ]
     else:
         inst_folders =[str()]
-    filenames = []
-    
-    use_dubgen_model=False
 
     #count the files to appear on print
     total_sounds=0
@@ -540,8 +502,9 @@ def SAMPLE_PROCESSING(user_info, train=1, leave_misc=0 ,
                 else:
                     Sample_label.append([0,0]) 
                 
-                print("\r\033[2KProcessing Sound {}/{}".format(s, total_sounds), end="", flush=True)
-                #tkinter.config(text="oi...")
+                #("\r\033[2KProcessing Sound {}/{}".format(s, total_sounds), end="", flush=True)
+                text = 'Processing Sound ' + str(s) + '/' + str(total_sounds)+ ' ' 
+                tkinter.config(text=text)
                 
                 #print('Processing Sound ', s, '...')
                 #print(filename)
@@ -592,17 +555,16 @@ def SAMPLE_PROCESSING(user_info, train=1, leave_misc=0 ,
     Feat_List_c = list(Features_Classify.values())
     flat_list_c = sum(Feat_List_c, [])
     
-    
     if train==1:
-        print('Training Instrument Classification...\n')
+        text = 'Training Instrument Classification... '
+        tkinter.config(text=text)
+        
         #Transform the data (for MISC classification)  
         flat_list, scaler1 = Norm_and_Scale(np.array(flat_list))
-        
         #Transform the data (for inst classification)
         flat_list_c, scaler2 = Norm_and_Scale(np.array(flat_list_c))
         
         #Classify Miscellaneous:
-        #print('\nMiscellaneous Sounds Detection:')
         class_MISC, model_misc, y = get_SVC(flat_list, n_inst, true_classes, SVC(), misc=1, train=1)
         
         #Remove classified as Miscellaneous
@@ -618,26 +580,23 @@ def SAMPLE_PROCESSING(user_info, train=1, leave_misc=0 ,
                                                                     [0, 1, 2],
                                                                     model_misc)
         
-        #print('\nInstrument Classification:')
-        #Classify Instruments
-        
+        #Classify Instruments      
         class_inst, model_inst, y = get_SVC(flat_list_c, n_inst, true_classes, SVC(), misc=0, train=1)
         
         model_info = info_model(model_misc, model_inst, scaler1, scaler2)
-
         
     else:
-        print("\r\033[2KClassifying Sounds...", end="", flush=True)
+        text = 'Classifying Sounds... '
+        tkinter.config(text=text)
         clf_misc = model_info.model_misc
         clf_inst = model_info.model_inst
-        
         scl_misc = model_info.scaler_misc
         scl_inst = model_info.scaler_inst
                 
         flat_list = scl_misc.transform(np.array(flat_list)) #scale misc
         flat_list_c = scl_inst.transform(np.array(flat_list_c)) #scale inst
         
-        #print('\nMiscellaneous Sounds Detection:')       
+        #Miscellaneous Sounds Detection      
         class_MISC, model_misc, y = get_SVC(flat_list, n_inst, true_classes, clf_misc,
                                             misc=1, train=0)
         
@@ -646,7 +605,7 @@ def SAMPLE_PROCESSING(user_info, train=1, leave_misc=0 ,
                             flat_list, class_MISC, true_classes, Sample_label,[0],
                             model_misc, leave_misc)
         
-        #print('\nInstrument Classification:')
+        #Instrument Classification
         class_inst, model_inst, y = get_SVC(flat_list_c, n_inst, true_classes, clf_inst, misc=0,
                                             train=0)
         
@@ -655,15 +614,13 @@ def SAMPLE_PROCESSING(user_info, train=1, leave_misc=0 ,
             if len(np.where(class_inst==class_id)[0])<1:
                 class_inst = attribute_closest_samples(flat_list_c, class_inst, model_inst, class_id)
         
-        print('Creating .wav files for samples...')
+        text = 'Creating .wav files for samples... '
+        tkinter.config(text=text)
         Create_wav(Samples_down, class_inst, sample_idx, sr=22050,
                    path = os.path.dirname(user_info.main_path)+'/output/output_samples/')
         
-    
     # FOR THE GENETIC ALGORITHM: 
-    ###########################################################################################
-    # CREATE DATAFRAMES!
-
+    # CREATE DATAFRAMES
     Samples_flat = list(Samples_down.values())
     flat_samp_aux = sum(Samples_flat, [])
     
@@ -679,11 +636,9 @@ def SAMPLE_PROCESSING(user_info, train=1, leave_misc=0 ,
                           'r_off_t','r_off_b','sp_flat']
     
     df_aux = pd.DataFrame(flat_list_c, columns=column_names)
-    
     df_samples = pd.concat([df_samples,df_aux],axis=1)
     
     sample_info = info_sample(df_samples, flat_samp, sample_idx, norm_coef, filenames, list(), list())
-    
     
     return sample_info, model_info, pca_info_misc, pca_info_inst, use_dubgen_model
 

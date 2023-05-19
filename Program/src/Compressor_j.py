@@ -2,14 +2,15 @@
 """
 Created on Wed Jun  1 15:27:06 2022
 
-author: João Paixão
+@author: João Paixão
 
-inspired in compressor by: Frank Zalkow
+@brief: Arctangent Audio Compressor. Inspired in compressor by: Frank Zalkow
 """
 
 import numpy as np
 from scipy.interpolate import interp1d
 
+#apply arctan transfer functiin
 def apply_transfer(signal, transfer, interpolation='linear'):
     constant = np.linspace(-1, 1, len(transfer))
     interpolator = interp1d(constant, transfer, interpolation, fill_value="extrapolate")
