@@ -10,7 +10,7 @@ Created samples can also be modulated by a Synthesizer.
 **How it works**
 1. **Samples**: In the *".../dubgen/user/test_sounds/"* folder, add sounds to create a library of samples. We strongly recommend inserting more than 20 sounds.
 
-2. **MIDI**: In the *".../dubgen/user/midi/"* folder, insert three MIDI files, one for each instrument.
+2. **MIDI**: In the *".../dubgen/user/midi/"* folder, insert three MIDI files, one for each instrument (Only ONE file per folder).
 
 3. (Optional) You can train your own "Instrument Classification Model". For this, add sounds in each Instrument Category Folder in *".../dubgen/user/train_sounds/"*. We recommend inserting more than 20 sounds per Instrument.
 
