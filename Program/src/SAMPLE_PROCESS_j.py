@@ -19,7 +19,7 @@ from sklearn.utils import shuffle
 from sklearn.model_selection import GridSearchCV
 
 from PLAY_MIDI_AND_SAMPLES_j import Unclipping
-from LSTM_j import Norm_and_Scale
+from PROCESS_DATA import Norm_and_Scale
 
 import warnings
 warnings.filterwarnings("ignore")

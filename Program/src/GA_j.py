@@ -25,7 +25,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import SAMPLE_PROCESS_j as SP
-import LSTM_j as LSTM
+import PROCESS_DATA as PD
 import PLAY_MIDI_AND_SAMPLES_j as pb
 
 # permutations with replacement
@@ -131,7 +131,7 @@ def Fitness(Individual, model, features, scaler_norm):
     Pop = [Individual]
     Pop = repeat_arrays(Pop, 5)
             
-    X_ind, _ , _ , _ = LSTM.Training_data_for_GA_CNN(Pop, features, Scores_user, 1, scaler_norm) #Scores entry (y_ind) doesn´t matter
+    X_ind, _ , _ , _ = PD.Training_data_for_GA_CNN(Pop, features, Scores_user, 1, scaler_norm) #Scores entry (y_ind) doesn´t matter
     
     X_ind = np.array(X_ind)
     score = model.predict(X_ind, verbose=0)
