@@ -20,7 +20,7 @@ Created samples can also be modulated by a Synthesizer.
 
 This app was only tested on Windows 10, and requires Python3 (Download here: [python.org](https://www.python.org/downloads/) ).
 
-After Installing Python3, clone this repository into your device. Open a Git Bash Terminal on your desired directory (Right Click -> Git Bash Here), and run this command:
+After Installing Python3, clone this repository into your device ([How to Clone GitHub Repository](https://docs.github.com/pt/repositories/creating-and-managing-repositories/cloning-a-repository)). Open a Git Bash Terminal on your desired directory (Right Click -> Git Bash Here), and run this command:
 
 `git clone https://github.com/JPPaixao/dubgen`
 
