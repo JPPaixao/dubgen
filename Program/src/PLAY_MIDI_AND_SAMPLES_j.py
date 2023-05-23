@@ -262,7 +262,7 @@ def PLAYBACK_midi_samples(Ind, user_info, midi_info_list,
             #function that applies the synthesis
             Synthesize  = inst_synth.synthetize
         
-        #silencio inicial para sinal começar no mesmo sitio que o midi (pode se retirar caso seja silencio muito grande...)
+        #initial silence so that audio starts in the desired time (determined by MIDI)
         Inst_signal[inst] = np.append(Inst_signal[inst], np.zeros(round(beg_compass*samples_per_tick)))
         
         if synth ==1:
