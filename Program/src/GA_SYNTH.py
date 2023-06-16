@@ -498,7 +498,7 @@ def GA(user_info, midi_info_list, info_GA, sample_info, Ind_samples, tkinter):
             elif filename.startswith('MELODY'): midi_files.append(filename)
     
     POP_SIZE = 6
-    N_GEN = 2
+    N_GEN = 5
 
     #SET PARAMETERS VARIABLE TYPE
     AutoFilter = {'cutoff_floor':float(), 'cutoff_ceiling':float(), 'lfo_floor':float(),
