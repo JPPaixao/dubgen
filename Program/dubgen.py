@@ -118,7 +118,6 @@ class PageOne(tk.Frame):
 
         label = tk.Label(self, text="How it works:", font=controller.title_font)
         label.pack(side="top", pady=10)
-        #label.grid(row=row, column=0, sticky="nsew")
         row+=1
         
         text1="dubgen creates monophonic samples from given sounds, modifies MIDI compositions, and then choses a sequence of samples to generate an arrangement (new MIDI + samples)"
@@ -127,13 +126,11 @@ class PageOne(tk.Frame):
         explanation1 = tk.Label(self, text=text1,
                           font=('Helvetica', 18, 'bold'), wraplength=500)
         explanation1.pack(expand=True)
-        #explanation1.grid(row=row, column=0, sticky="nsew")
         row+=1
         
         
         explanation2 = tk.Label(self, text=text2,
                           font=('Helvetica', 18, 'bold'), wraplength=500)
-        #explanation2.grid(row=row, column=0, sticky="nsew")
         explanation2.pack(expand=True)
         row+=1
 
@@ -141,13 +138,7 @@ class PageOne(tk.Frame):
         button = tk.Button(self, text="Next", font=('Helvetica', 18),
                            command= lambda: controller.show_frame("PageOne2"))
         button.pack(expand=True, side='right', pady=20)
-        #button.grid(row=row, column=0, sticky="nsew")
         row+=1
-        
-        
-        #self.grid_rowconfigure(list(range(row)), weight=1)
-        
-        #self.grid_columnconfigure(list(range(row)), weight=1)
 
 class PageOne2(tk.Frame):
 
@@ -158,7 +149,6 @@ class PageOne2(tk.Frame):
 
         label = tk.Label(self, text="How it works:", font=controller.title_font)
         label.pack(side="top", pady=10)
-        #label.grid(row=row, column=0, sticky="nsew")
         row+=1
         
         text1="Your input:"
@@ -173,27 +163,23 @@ class PageOne2(tk.Frame):
         explanation1 = tk.Label(self, text=text1,
                           font=('Helvetica', 18, 'bold'))#, justify="left", wraplength=500)
         explanation1.pack(expand=True)
-        #explanation1.grid(row=row, column=0, sticky="nsew")
         row+=1
         
         explanation1_1 = tk.Label(self, text=text1_1,
                           font=('Helvetica', 10, 'bold',"italic"), fg="#1c4966")#, justify="left", wraplength=500)
         explanation1_1.pack(expand=True)
-        #explanation1.grid(row=row, column=0, sticky="nsew")
         row+=1
 
 
         text_box = tk.Text(self)
         text_box.insert('end', text2)
         text_box.insert('end', text2_2)
-        #text_box.grid(row=row, column=0, sticky="nsew")
         text_box.pack(expand=True)
         text_box.configure(state='disabled', height=5, width=50)
         row+=1
         
         explanation2 = tk.Label(self, text=text3,
-                          font=('Helvetica', 18, 'bold'))#, justify="left", wraplength=500)
-        #explanation2.grid(row=row, column=0, sticky="nsew")
+                          font=('Helvetica', 18, 'bold'))
         explanation2.pack(expand=True)
         row+=1
 
@@ -201,7 +187,6 @@ class PageOne2(tk.Frame):
         text_box2.insert('end', text4)
         text_box2.insert('end', text4_2)
         text_box2.insert('end', text4_3)
-        #text_box2.grid(row=row, column=0, sticky="nsew")
         text_box2.pack(expand=True)
         text_box2.configure(state='disabled', height=5, width=50)
         row+=1
@@ -209,18 +194,12 @@ class PageOne2(tk.Frame):
         button = tk.Button(self, text="Next", font=('Helvetica', 18),
                            command= lambda: controller.show_frame("PageTwo"))
         button.pack(expand=True, side='right', pady=20)
-        #button.grid(row=row, column=0, sticky="nsew")
         row+=1
         
         button = tk.Button(self, text="Go Back", font=('Helvetica', 18),
                            command= lambda: controller.show_frame("PageOne"))
         button.pack(expand=True, side='right', pady=20, padx=20)
-        #button.grid(row=row, column=0, sticky="nsew")
         row+=1
-        
-        #self.grid_rowconfigure(list(range(row)), weight=1)
-        
-        #self.grid_columnconfigure(list(range(row)), weight=1)
         
         
 # funcs parameter will have the reference
@@ -255,15 +234,11 @@ class PageTwo(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        #self.geometry("600x500")
         
         # Create five columns
         for i in range(5):
             if i!=2:
                 self.grid_columnconfigure(i, weight=1, uniform="equal")
-        
-        # Give the center column a weight of 1
-        #self.grid_columnconfigure(2, weight=1)
         
         # Place widgets using grid()
         label1 = tk.Label(self, text=" ")
@@ -285,7 +260,6 @@ class PageTwo(tk.Frame):
         
         
         label = tk.Label(self, text="Settings", font=controller.title_font)
-        #label.pack(side="top", fill="x", pady=10)
         label.grid(row=row, column=2 , columnspan=1, sticky="nsew")
         row+=1
         
@@ -409,19 +383,11 @@ class PageTwo(tk.Frame):
         train_checkbox.grid(row=row, column=1, columnspan=1, pady=10, sticky = 'nsew')
         row+=1
         
-        
-        
-        #save = self.save_info(user_path_entry, bpm_entry)
-        
         button2 = tk.Button(self, text="Go Back", font=('Helvetica', 18),
                            command=lambda: controller.show_frame("PageOne"))
         
         button3 = tk.Button(self, text="Next", font=('Helvetica', 18),
                            command= lambda: controller.show_frame("PageFour"))
-
-        #to join the two functions in a button: 
-            #combine_funcs(lambda: fun1(arguments), lambda: fun2(arguments))
-            #https://www.geeksforgeeks.org/how-to-bind-multiple-commands-to-tkinter-button/
         
         #button1.grid(row=row, column=0, pady=10)
         button2.grid(row=row, column=0, columnspan=2, pady=30, padx=20, sticky='w')
@@ -463,25 +429,6 @@ class PageFour(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.controller = controller
         
-        '''
-        for i in range(3):
-            if i!=4:
-                self.grid_columnconfigure(i, weight=1, uniform="equal")
-        
-        # Give the center column a weight of 1
-        #self.grid_columnconfigure(2, weight=1)
-        
-        
-        # Place widgets using grid()
-        label1 = tk.Label(self, text="1")
-        label1.grid(row=0, column=0)
-        
-        label2 = tk.Label(self, text="2")
-        label2.grid(row=0, column=1)
-        
-        label3 = tk.Label(self, text="3")
-        label3.grid(row=0, column=2)
-        '''
         row=0
         
         label = tk.Label(self, text="Create Arrangement!", font=controller.title_font)     
@@ -498,17 +445,9 @@ class PageFour(tk.Frame):
                            command= combine_funcs(self.Threading,
                             lambda: self.button2.config(text="Creating...", state=tk.DISABLED, width=35)))
         
-        #self.button3 = tk.Button(self, text="Stop", font=('Helvetica', 18), state= tk.DISABLED, command= self.stop_thread)
-        
-
-        #self.button2.grid(row=row, column=1, pady=100)
         self.button2.pack( pady=10, expand=True)
         row+=1
-        #self.button1.grid(row=row, column=0, pady=100)
         self.button1.pack( pady=10, expand=True, side='left')
-        #self.button2.pack( pady=10, expand=True)
-        #self.button3.pack( pady=10, expand=True, side='right')
-        #self.button3.grid(row=row, column=2, pady=100)
         
         #self.out_sampling = {'midi_list': list()}
         self.out_ga = {'music_path': 'init', 'best_score': float(0.0)}
@@ -520,23 +459,20 @@ class PageFour(tk.Frame):
 
         self.t1.start()
     
-    def run_sampling(self): #corre o processo de sampling
-        path = self.controller.shared_data["main_path"] #não tem get pq é uma variavel normal (e não do tkinter)
+    def run_sampling(self): 
+        path = self.controller.shared_data["main_path"]
         bpm = self.controller.shared_data["bpm"].get()
-        #print('bpm: ', bpm)
         mod = self.controller.shared_data["mod"].get()
         fb = self.controller.shared_data["fb"].get()
         section_size = self.controller.shared_data["section_size"].get()
         
         user_data = user_input(bpm, path, mod, fb, section_size)
         
-        #self.button3.configure(text = "Stop", state= tk.NORMAL)
         self.button1.configure(text = "Go Back", state= tk.DISABLED)
-        #'''
+
         from main import Sampling_and_Mod
         train_bool=self.controller.shared_data['train'].get()
         
-        #print("TRAIN BOOL:", train_bool)
         if train_bool==True:
             train=1
         else: train=0
@@ -586,9 +522,7 @@ class PageFour(tk.Frame):
 
         
     def stop_thread(self): #stop the thread
-        # (raise exception maybe is not the best way)
-        #ctypes.pythonapi.PyThreadState_SetAsyncExc(self.t1, 0) #isto tá mal
-        self.button3.configure(text = "Stopping Thread...", state= tk.DISABLED) #this is not working...nothing is printed
+        self.button3.configure(text = "Stopping Thread...", state= tk.DISABLED)
         
         if self.t1.is_alive():
             self.event.set()
@@ -598,12 +532,7 @@ class PageFour(tk.Frame):
         self.button3.configure(text = "Stop", state= tk.NORMAL)
 
 
-    def change_layout4(self): #muda butao de start, para stop e para o thread.
-        # fazer isto de forma a tar em loop!! 
-        # depois de stop vem start e permite recomeçar o processo
-        # (talvez voltar à pagina anterior?...).
-        # Acho que há um exemplo na pasta com implementação mais elegante
-        
+    def change_layout4(self):
         self.button2.configure(text = "Stop", command = self.stop_thread)
 
         
@@ -687,23 +616,15 @@ class PageFive(tk.Frame):
         
         pady_mp3 = 20
         
-        '''
-        fill1_mp3 = tk.Label(mp3_frame, text=" ")
-        fill1_mp3.grid(row = row, column = 0, pady=pady_mp3, sticky='nsew')
-        fill2_mp3 = tk.Label(mp3_frame, text=" ")
-        fill2_mp3.grid(row = row, column = 7, pady=pady_mp3, sticky='nsew')
-        '''
         self.paused = False
         self.save_start = 0
         
-        #VERIFICAR SE FUNCIONA CHAMAR AS FUNCOES DOUTRA CLASSE? O SELF IRÁ FUNCIONAR??
         play_btn = tk.Button(mp3_frame, image=play_icon, borderwidth=0, command= self.Play_Song)
         pause_btn = tk.Button(mp3_frame, image=pause_icon, borderwidth=0, command= self.Pause_Song)
         stop_btn = tk.Button(mp3_frame, image=stop_icon, borderwidth=0, command= self.Stop_Song)
         backward_btn = tk.Button(mp3_frame, image=backward_icon, borderwidth=0, command= self.Backward_Song)
         forward_btn = tk.Button(mp3_frame, image=forward_icon, borderwidth=0, command= self.Forward_Song)
         
-        #just to have a mention of the image (to hold the image so it doesnt get trashed earlier)
         play_btn.image = play_icon
         pause_btn.image = pause_icon
         stop_btn.image = stop_icon
@@ -780,7 +701,6 @@ class PageFive(tk.Frame):
 
         start += (play_time/1000.0) + 5
         
-        # mixer.music.pause()
         self.mixer.music.pause()
         
         self.save_start = start
@@ -818,9 +738,6 @@ class PageSix(tk.Frame):
         for i in range(7):
             self.grid_columnconfigure(i, weight=1, uniform="equal")
         
-        # Give the center column a weight of 1
-        #self.grid_columnconfigure(2, weight=1)
-        
         # Place widgets using grid()
         label1 = tk.Label(self, text=" ")
         label1.grid(row=0, column=0)
@@ -848,8 +765,6 @@ class PageSix(tk.Frame):
         label = tk.Label(self, text="Synthesizer", font=controller.title_font)
         label.grid(row=row, column=2, columnspan=3)
         row+=1
-        
-        #main_path = self.controller.shared_data["main_path"]
         
         #maximum number of sections (that can be parameterized)
         self.max_sections = 5
@@ -900,9 +815,7 @@ class PageSix(tk.Frame):
         # Create five columns
         for i in range(5):
             param_frame.grid_columnconfigure(i, weight=1, uniform="equal")
-        
-        # Give the center column a weight of 1
-        #self.grid_columnconfigure(2, weight=1)
+
         
         # Place widgets using grid()
         label1 = tk.Label(param_frame, text=" ")
@@ -952,8 +865,6 @@ class PageSix(tk.Frame):
         for i in range(5):
             inst_frame.grid_columnconfigure(i, weight=1, uniform="equal")
         
-        # Give the center column a weight of 1
-        #self.grid_columnconfigure(2, weight=1)
         
         # Place widgets using grid()
         label12 = tk.Label(inst_frame, text=" ")
@@ -1001,7 +912,6 @@ class PageSix(tk.Frame):
                                 command= combine_funcs(lambda selected: check_combination([self.inst_af.get(),
                                 self.inst_gr.get(), self.inst_ip.get()], self.start_synth),
                                 lambda value: set_inst_af(self,value)))
-                
         
         
         menu_gr = tk.OptionMenu(inst_frame, self.inst_gr, *OPTIONS, 
@@ -1068,8 +978,6 @@ class PageSix(tk.Frame):
         synths[idx_gr] = 1
         synths[idx_ip] = 2
         
-        #print('synths:', synths)
-        #'''
         #########################  ALOCATE PARAMETERS FOR IND_SYNTH  ################################
         if self.custom.get():
             af_param = self.af_param
@@ -1097,7 +1005,7 @@ class PageSix(tk.Frame):
                                    Ind_sample, Ind_synth, synths, midi_info_real, self.start_synth)
         
         self.out_synth_path = synth_path
-        #'''
+   
         
         self.start_synth.configure(text = "Listen to Arrangement!", state= tk.NORMAL, width = 25,
                                command = lambda: self.controller.show_frame("PageTen"))
@@ -1112,9 +1020,6 @@ class PageSeven(tk.Frame):
         for i in range(5):
             if i!=2:
                 self.grid_columnconfigure(i, weight=1, uniform="equal")
-        
-        # Give the center column a weight of 1
-        #self.grid_columnconfigure(2, weight=1)
         
         # Place widgets using grid()
         label1 = tk.Label(self, text=" ")
@@ -1135,8 +1040,6 @@ class PageSeven(tk.Frame):
         row = 1
         
         slider_length = 300
-        
-
         row+=1
         
         row=0
@@ -1344,7 +1247,6 @@ class PageSeven(tk.Frame):
         
         
         self.controller.frames['PageSix'].af_param = af_param
-        #print('af parameters:', af_param)
         
         
 class PageEight(tk.Frame):
@@ -1526,7 +1428,7 @@ class PageEight(tk.Frame):
     
         
     def save_params(self):
-        #normalizar (0 to 1)
+        #normalize (0 to 1)
         grain_size = (self.grain_size.get() - self.min_grain_size) / (self.max_grain_size - self.min_grain_size)
         grain_space = (self.grain_space.get() - self.min_grain_space) / (self.max_grain_space - self.min_grain_space)
         
@@ -1535,7 +1437,6 @@ class PageEight(tk.Frame):
         gr_param *= self.controller.frames['PageSix'].max_sections
         
         self.controller.frames['PageSix'].gr_param = gr_param
-        #print('gr parameters:', gr_param)
 
 class PageNine(tk.Frame):
 
@@ -1617,10 +1518,6 @@ class PageNine(tk.Frame):
         ip_param *= self.controller.frames['PageSix'].max_sections
         
         self.controller.frames['PageSix'].ip_param = ip_param   
-        #print('ip parameters:', ip_param)
-        
-        
-
         
     
 class PageTen(tk.Frame):
@@ -1632,9 +1529,7 @@ class PageTen(tk.Frame):
         # Create five columns
         for i in range(7):
             self.grid_columnconfigure(i, weight=1, uniform="equal")
-        
-        # Give the center column a weight of 1
-        #self.grid_columnconfigure(2, weight=1)
+
         
         # Place widgets using grid()
         label1 = tk.Label(self, text=" ")
@@ -1703,23 +1598,15 @@ class PageTen(tk.Frame):
         
         pady_mp3 = 20
         
-        '''
-        fill1_mp3 = tk.Label(mp3_frame, text=" ")
-        fill1_mp3.grid(row = row, column = 0, pady=pady_mp3, sticky='nsew')
-        fill2_mp3 = tk.Label(mp3_frame, text=" ")
-        fill2_mp3.grid(row = row, column = 7, pady=pady_mp3, sticky='nsew')
-        '''
         self.paused = False
         self.save_start = 0
         
-        #VERIFICAR SE FUNCIONA CHAMAR AS FUNCOES DOUTRA CLASSE? O SELF IRÁ FUNCIONAR??
         play_btn = tk.Button(mp3_frame, image=play_icon, borderwidth=0, command= self.Play_Song)
         pause_btn = tk.Button(mp3_frame, image=pause_icon, borderwidth=0, command= self.Pause_Song)
         stop_btn = tk.Button(mp3_frame, image=stop_icon, borderwidth=0, command= self.Stop_Song)
         backward_btn = tk.Button(mp3_frame, image=backward_icon, borderwidth=0, command= self.Backward_Song)
         forward_btn = tk.Button(mp3_frame, image=forward_icon, borderwidth=0, command= self.Forward_Song)
         
-        #just to have a mention of the image (to hold the image so it doesnt get trashed earlier)
         play_btn.image = play_icon
         pause_btn.image = pause_icon
         stop_btn.image = stop_icon
@@ -1763,8 +1650,6 @@ class PageTen(tk.Frame):
     
     def Play_Song(self):
         song_path = self.controller.frames['PageSix'].out_synth_path
-
-        #print('music path: ', song_path)
         
         self.mixer.music.load(song_path)
         self.mixer.music.play(loops=0)
@@ -1795,7 +1680,6 @@ class PageTen(tk.Frame):
 
         start += (play_time/1000.0) + 5
         
-        # mixer.music.pause()
         self.mixer.music.pause()
         
         self.save_start = start
@@ -1810,7 +1694,6 @@ class PageTen(tk.Frame):
 
         start += (play_time/1000.0) - 5
         
-        # mixer.music.pause()
         self.mixer.music.pause()
         
         self.save_start = start
@@ -2127,7 +2010,7 @@ def get_GUI_TEXT():
         The Cutoff Frequency will then oscillate between those two values, modulated by the LFO.'
     
     GUI_txt['LFO'] = 'Determines the Maximum and Minimum LFO Frequency of the Auto Filter. \
-        This will determine the rate in which the Cutoff Frequency oscillates between its Minimum and Maximum Value.'
+        This will determine the rate at which the Cutoff Frequency oscillates between its Minimum and Maximum Value.'
             
     GUI_txt['LFO SHAPE EVO'] = 'Shape: Shape of the LFO signal. \
         EVO: Function that determines the evolution of the LFO frequency.'
@@ -2141,9 +2024,9 @@ def get_GUI_TEXT():
     GUI_txt['Grain Space'] ='Space between each grain.'
     GUI_txt['Grain Order'] ='True means the grains maintain original order.\
         False means the grains are reordered.'
-    GUI_txt['Smoothing'] = 'Smoothing Filter smoothenS transition between grains.'
+    GUI_txt['Smoothing'] = 'Smoothing Filter smoothens transition between grains.'
     GUI_txt['Even Spacing'] ='True means spaces between grains are all the same.\
-        False means the space between grains varies randomnly.'
+        False means the space between grains varies randomly.'
     
     GUI_txt['SIGNAL SHAPE EVO'] = 'Determines the shape of the wavetable sound that will be interpolated with the input signal. EVO determines the evolution of the balance (interpolation weight from 0 to 1) between the two sounds.'
             
