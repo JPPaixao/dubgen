@@ -986,9 +986,10 @@ class PageSix(tk.Frame):
             
             params_synths = [af_param, gr_param, ip_param]
             Ind_synth = [-1,-1,-1]
-            
+
+            idxs = [idx_af, idx_gr, idx_ip]
             #place synth params in the correct instrument: Ind_param[param_bass, param_harmony, param_melody]
-            for idx, params in zip(synths, params_synths):
+            for idx, params in zip(idxs, params_synths):
                 Ind_synth[idx] = params
         else: Ind_synth=list()
         #############################################################################################
